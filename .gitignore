@@ -1,0 +1,18 @@
+# Virtual environment folder
+env/
+
+# Environment variables file
+.env
+
+# Python compiled bytecode files
+*.pyc
+
+# Temporary files
+*~
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Jupyter Notebook temporary files
+*.ipynb_checkpoints
+
