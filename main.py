@@ -8,6 +8,7 @@ from urllib.parse import quote_plus
 import yagmail
 from getpass import getpass  # Import for secure password input
 
+app = Flask(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -80,15 +81,16 @@ def generate_adf_xml(leads_data):
         for tag in tags:
             etree.SubElement(prospect, "tag").text = tag
 
-        # Lead Source (Optional)
-        lead_source = lead.get("source", "")
-        if lead_source:
-            etree.SubElement(prospect, "leadSource").text = lead_source
+        # Source Type Name (New)
+        source_type_name = lead.get("Contact Source", "")
+        if source_type_name:
+            provider = etree.SubElement(prospect, "provider")
+            etree.SubElement(provider, "sourceTypeName").text = source_type_name
 
         # Notes (Optional)
-        notes = lead.get("note", "")
-        if notes:
-            etree.SubElement(prospect, "notes").text = notes
+        note = lead.get("AI Memory", "")
+        if note:
+            etree.SubElement(prospect, "AI Memory").text = note
 
     return etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=True)
 
@@ -123,9 +125,7 @@ if __name__ == "__main__":
 
     else:
         print("No leads found or all leads have errors.") 
-
-        app = Flask(__name__)
-
+        
 @app.route('/webhook', methods=['POST']) 
 def handle_webhook():
     try:
