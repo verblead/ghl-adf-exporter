@@ -14,12 +14,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
+          
       - name: Install system dependencies (if needed)
-        run: sudo apt-get install -y portaudio19-dev 
+        run: sudo apt-get install -y portaudio19-dev
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -27,28 +30,33 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+            
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Run script to process initial leads and start webhook server
+
+      - name: Run script to process initial leads
+        run: python main.py 
+
+      - name: Install Gunicorn and Supervisord
+        run: pip install gunicorn supervisor
+ 
+      - name: Prepare Supervisord configuration
         run: |
-          python main.py &  # Run main.py in the background to process leads
-          pip install gunicorn supervisor
           echo "[program:webhook]" >> supervisord.conf
-          echo "command=gunicorn webhook:app --bind 0.0.0.0:5000" >> supervisord.conf  # Specify binding address
-          echo "[supervisorctl]" >> supervisord.conf  # Add supervisorctl section
-          echo "serverurl=http://127.0.0.1:9001" >> supervisord.conf # add in server url
-          supervisord -c supervisord.conf & # Run Supervisord in the background
-      - name: Stop Supervisord (gracefully)
-        run: |
-          sleep 15  # Give more time for the server to start (increase if needed)
-          supervisorctl -c supervisord.conf shutdown  # Specify config file
-      - name: Force Stop Supervisord (if graceful shutdown fails)  
-        if: failure()
-        run: |
-          pkill -f supervisord # Kill the supervisord process
+          echo "command=gunicorn webhook:app --bind 0.0.0.0:5000" >> supervisord.conf
+          echo "[supervisorctl]" >> supervisord.conf 
+          echo "serverurl=http://127.0.0.1:9001" >> supervisord.conf  
+
+      - name: Start webhook server with Supervisord
+        run: supervisord -c supervisord.conf
+       
+      - name: Stop Supervisord
+        run: supervisorctl -c supervisord.conf shutdown
+
       - name: Upload logs (if failed)
         if: failure()
         uses: actions/upload-artifact@v3
         with:
           name: error-logs
-          path: error.log  # Adjust the path if necessary
+          path: error.log
+
