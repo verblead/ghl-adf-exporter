@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: 3.8
       - name: Install system dependencies 
-        run: sudo apt-get install -y portaudio19-dev # keep as is 
+        run: sudo apt-get install -y portaudio19-dev # Keep as is if needed
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -29,16 +29,15 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Run script to process initial leads
-        run: python main.py
-      - name: Install Gunicorn (for webhook server)
-        run: pip install gunicorn
-      - name: Run webhook server
-        run: gunicorn webhook:app # Start the Flask app using Gunicorn
-      - name: Upload logs (if failed)
-        if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: error-logs
-          path: error.log # Adjust the path based on your logging setup
+      - name: Run script to process initial leads and start webhook server
+        run: |
+          python main.py &  # Run main.py in the background to process leads
+          pip install gunicorn supervisor
+          echo "[program:webhook]" >> supervisord.conf
+          echo "command=gunicorn webhook:app" >> supervisord.conf
+          supervisord -c supervisord.conf & # Run Supervisord in the background
+      - name: Stop Supervisord
+        run: |
+          sleep 10
+          supervisorctl shutdown # Gracefully shut down Supervisord and Gunicorn
 
