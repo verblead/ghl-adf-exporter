@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import yagmail
 import logging
 
-
+# Global Flask app object
 app = Flask(__name__)
 load_dotenv()
 
@@ -123,14 +123,25 @@ def send_email(recipient, subject, contents, attachment=None):
         logging.error(f"Error sending email: {e}")
         
 
+# Global variable to store processed lead IDs (consider using a persistent storage like a database in production)
+processed_leads = set()
 
 # Webhook Endpoint
 @app.route('/webhook', methods=['POST'])
 def handle_webhook():
     try:
         lead_data = request.get_json()
-        if not lead_data:  
-            return jsonify({"error": "Invalid or empty JSON payload"}), 400  
+        if not lead_data:
+            return jsonify({"error": "Invalid or empty JSON payload"}), 400
+
+        lead_id = lead_data.get("id")
+
+        # Check for duplicate lead
+        if lead_id in processed_leads:
+            logging.warning(f"Duplicate lead detected: {lead_id}")
+            return jsonify({"message": "Duplicate lead, ignoring"}), 200
+        else:
+            processed_leads.add(lead_id)
 
         adf_xml = generate_adf_xml([lead_data])
 
@@ -155,7 +166,12 @@ def handle_webhook():
     except Exception as e: 
         logging.error(f"Unexpected webhook error: {e}, Payload: {lead_data}")
         return jsonify({"error": "Internal Server Error"}), 500
-        
+    finally:
+        # Now, shut down the Flask app explicitly (after handling the request)
+        shutdown_func = request.environ.get('werkzeug.server.shutdown')
+        if shutdown_func:
+            shutdown_func()
+        logging.info("Flask app shutting down...")    
 
 if __name__ == "__main__":
     leads = fetch_ghl_leads()
