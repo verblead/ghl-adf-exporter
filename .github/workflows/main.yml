@@ -6,9 +6,8 @@ on:
   pull_request:
     branches: [ main ]
   repository_dispatch:
-    types: [lead]  # replace "lead" with your event type
+      types: [lead]  # replace "lead" with your event type
 
-    
 jobs:
   build:
 
