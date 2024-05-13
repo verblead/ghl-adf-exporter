@@ -128,19 +128,14 @@ def send_email(recipient, subject, contents, attachment=None):
         
 
 # Global variable to store processed lead IDs (consider using a persistent storage like a database in production)
+# Global variables
 processed_leads = set()
-shutdown_event = Event()  # Event to signal server shutdown
-
-# Function to shutdown the Flask app
-def shutdown_server():
-    func = request.environ.get('werkzeug.server.shutdown')
-    if func is None:
-        raise RuntimeError('Not running with the Werkzeug Server')
-    func()
+shutdown_event = Event()
 
 # Webhook Endpoint
 @app.route('/webhook', methods=['POST'])
 def handle_webhook():
+    global shutdown_event
     try:
         lead_data = request.get_json()
         if not lead_data:
@@ -180,11 +175,14 @@ def handle_webhook():
     except Exception as e:
         logging.error(f"Unexpected webhook error: {e}, Payload: {lead_data}")
         return jsonify({"error": "Internal Server Error"}), 500
-    finally:
-        # Now, shut down the Flask app explicitly (after handling the request)
-        shutdown_server()
-        logging.info("Flask app shutting down...")
 
+
+def raise_keyboard_interrupt():
+    raise KeyboardInterrupt
+
+def wait_and_shutdown():
+    time.sleep(15)  # Adjust the timeout as needed
+    raise_keyboard_interrupt()
 
 if __name__ == "__main__":
     # Process initial leads (run only once)
@@ -202,11 +200,11 @@ if __name__ == "__main__":
             ["New leads in ADFXML format attached.", "lead_export.xml"]
         )
 
-    # Start the Flask app in a separate thread
-    Thread(target=app.run, kwargs={'debug': False, 'host': '0.0.0.0', 'port': 5000, 'use_reloader': False}).start()
+    # Set up a signal handler to catch SIGALRM (the alarm signal)
+    signal.signal(signal.SIGALRM, raise_keyboard_interrupt)
 
-    # Wait for shutdown signal
-    shutdown_event.wait()
-
-    # Exit when the shutdown event is set
-    exit(0)
+    # Set an alarm to go off in 15 seconds
+    signal.alarm(15)
+    
+    # Start the Flask app 
+    app.run(debug=False, host='0.0.0.0', port=5000)
