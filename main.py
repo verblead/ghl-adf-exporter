@@ -43,52 +43,75 @@ def fetch_ghl_leads():
         return []  # Return empty list on error
 
 def generate_adf_xml(leads_data):
-    """Generates ADF XML from lead data, mapping GHL fields to DriveCentric format."""
+    """Generates ADF XML from lead data, adapting to your specific format."""
     if not leads_data:
         logging.warning("No leads found in the API response.")
         return None
 
     root = etree.Element("adf")
     for lead in leads_data:
-        prospect = etree.SubElement(root, "prospect")
+        prospect = etree.SubElement(root, "prospect", status="new")
 
         # ID with Source
-        source = lead.get("Contact Source", "")  # Get Contact Source from GHL
-        etree.SubElement(prospect, "id", source=source).text = str(lead.get("id", ""))
+        source = "VERBLEAD"  # Hardcoded as VERBLEAD per your requirement
+        etree.SubElement(prospect, "id", sequence="1", source=source).text = str(lead.get("id", ""))
 
+        # Request Date
+        request_date = lead.get("REQUESTDATE", "")
+        etree.SubElement(prospect, "requestdate").text = request_date
+
+        # Vehicle Information
+        vehicle_info = lead.get("VEHICLE", {})
+        if vehicle_info.get("interest") == "buy":
+            vehicle = etree.SubElement(prospect, "vehicle", interest="buy", status="used")
+            for key in ["YEAR", "MAKE", "MODEL"]:
+                value = vehicle_info.get(key, "")
+                if value:
+                    etree.SubElement(vehicle, key).text = str(value)
+
+        # Customer Information
         customer = etree.SubElement(prospect, "customer")
-        contact = etree.SubElement(customer, "contact")
+        contact = etree.SubElement(customer, "contact", primarycontact="1") 
+        for key in ["NAME"]:
+            value = lead.get("CUSTOMER", {}).get("CONTACT", {}).get(key, "")
+            if value and isinstance(value, dict): # Handle if NAME is a dictionary
+                for part in ["full", "first", "last"]:
+                    part_value = value.get(f"part = {part}", "")
+                    if part_value:
+                        etree.SubElement(contact, "name", part=part, type="individual").text = part_value
+            elif value:
+                etree.SubElement(contact, key).text = value
 
-        # Customer Information (Handle Missing Names Gracefully)
-        first_name = lead.get("firstName")
-        last_name = lead.get("lastName")
+        # Contact Information (phone, email, address)
+        for key, xml_tag in [("PHONE", "phone"), ("EMAIL", "email")]:
+            value = lead.get("CUSTOMER", {}).get("CONTACT", {}).get(key, "")
+            if value:
+                etree.SubElement(contact, xml_tag).text = value
 
-        if first_name:
-            etree.SubElement(contact, "name", part="first").text = first_name
-        if last_name:
-            etree.SubElement(contact, "name", part="last").text = last_name
+        address_info = lead.get("CUSTOMER", {}).get("CONTACT", {}).get("ADDRESS", {})
+        for key in ["STREET", "CITY", "REGIONCODE", "POSTALCODE", "COUNTRY"]:
+            value = address_info.get(f"line = 1", "") if key == "STREET" else address_info.get(key, "")
+            if value:
+                etree.SubElement(contact, "address" if key == "STREET" else key, type="home").text = value
 
-        # Vehicle Information (Trade-in) - Updated to use custom fields
-    for key in ["phone", "email", "address1", "city", "state", "postalCode"]:
-        value = lead.get(key, "")
-        if value:
-            etree.SubElement(contact, key).text = value
+        # Comments (Including AI Memory from ChatGPT)
+        comments = lead.get("CUSTOMER", {}).get("COMMENTS", "")
+        ai_memory = lead.get("Chat GPT", "")  # Assuming AI Memory is under "Chat GPT"
+        if ai_memory:
+            comments = f"{comments}\n\nAI Memory:\n{ai_memory}"
+        if comments:
+            etree.SubElement(customer, "comments").text = comments
 
-    additional_info = lead.get("Additional Info", {})  # Get data from "Additional Info" card
-    vehicle_info = {}
-    for key in ["Vehicle Year", "Vehicle Make", "Vehicle Model", "Vehicle Trim", "Vehicle Mileage", "Vehicle Condition"]:
-        value = additional_info.get(key, "") # Extract values from within "Additional Info"
-        if value:
-            vehicle_info[key] = value
+        # Vendor Information 
+        vendor_name = lead.get("VENDOR", {}).get("VENDORNAME", "")
+        if vendor_name:
+            vendor = etree.SubElement(prospect, "vendor")
+            etree.SubElement(vendor, "vendorname").text = vendor_name
 
-
-    if vehicle_info.get("Vehicle Year") and vehicle_info.get("Vehicle Make") and vehicle_info.get("Vehicle Model"):
-        vehicle = etree.SubElement(prospect, "vehicle", interest="trade-in")
-        for key, value in vehicle_info.items():
-            if value:  # Include only fields with values
-                # Map GHL custom field names to DriveCentric XML tags
-                xml_tag = key.replace("Vehicle ", "")
-                etree.SubElement(vehicle, key).text = str(value)
+        # Provider Information (Hardcoded as VERBLEAD)
+        provider = etree.SubElement(prospect, "provider")
+        etree.SubElement(provider, "name", part="full").text = "VERBLEAD"
+        etree.SubElement(provider, "service").text = "Used Vehicle Sales"
 
 
         # Tags (Optional)
@@ -96,20 +119,6 @@ def generate_adf_xml(leads_data):
         for tag in tags:
             etree.SubElement(prospect, "tag").text = tag
 
-        # Provider Information (Optional)
-        provider_name = lead.get("Contact Source", "") 
-        if provider_name:
-            provider = etree.SubElement(prospect, "provider")
-            etree.SubElement(provider, "name", part="full").text = provider_name # Add part="full"
-            etree.SubElement(provider, "service").text = provider_name  # Assuming service is the same as name
-
-        # Comments (Including AI Memory)
-        comments = lead.get("COMMENTS", "")
-        ai_memory = lead.get("AI Memory", "")
-        if ai_memory:
-            comments = f"{comments}\n\nAI Memory:\n{ai_memory}"
-        if comments:
-            etree.SubElement(prospect, "comments").text = comments
 
     return etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=True)
 
