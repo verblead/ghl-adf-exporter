@@ -155,7 +155,11 @@ def handle_webhook():
         return jsonify({"error": "Internal Server Error"}), 500
         
 
+# Global Flask app object
+app = Flask(__name__)
+
 if __name__ == "__main__":
+    # Process initial leads (run only once)
     leads = fetch_ghl_leads()
     adf_xml = generate_adf_xml(leads)
 
@@ -169,8 +173,12 @@ if __name__ == "__main__":
             "New Leads from GHL",
             ["New leads in ADFXML format attached.", "lead_export.xml"]
         )
-    else:
-        print("No leads found or all leads have errors.")
 
-    # Exit the script after processing leads
+    # Now, shut down the Flask app explicitly
+    shutdown_func = request.environ.get('werkzeug.server.shutdown')
+    if shutdown_func:
+        shutdown_func()
+    print("Flask app shutting down...")
+
     exit(0)  # 0 indicates successful completion
+
