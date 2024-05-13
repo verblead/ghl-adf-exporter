@@ -43,7 +43,7 @@ def fetch_ghl_leads():
         return []  # Return empty list on error
 
 def generate_adf_xml(leads_data):
-    """Generates ADF XML from lead data."""
+    """Generates ADF XML from lead data, mapping GHL fields to DriveCentric format."""
     if not leads_data:
         logging.warning("No leads found in the API response.")
         return None
@@ -51,7 +51,10 @@ def generate_adf_xml(leads_data):
     root = etree.Element("adf")
     for lead in leads_data:
         prospect = etree.SubElement(root, "prospect")
-        etree.SubElement(prospect, "id").text = str(lead.get("id", ""))
+
+        # ID with Source
+        source = lead.get("Contact Source", "")  # Get Contact Source from GHL
+        etree.SubElement(prospect, "id", source=source).text = str(lead.get("id", ""))
 
         customer = etree.SubElement(prospect, "customer")
         contact = etree.SubElement(customer, "contact")
@@ -93,16 +96,20 @@ def generate_adf_xml(leads_data):
         for tag in tags:
             etree.SubElement(prospect, "tag").text = tag
 
-        # Source Type Name (New)
-        source_type_name = lead.get("Contact Source", "")
-        if source_type_name:
+        # Provider Information (Optional)
+        provider_name = lead.get("Contact Source", "") 
+        if provider_name:
             provider = etree.SubElement(prospect, "provider")
-            etree.SubElement(provider, "sourceTypeName").text = source_type_name
+            etree.SubElement(provider, "name", part="full").text = provider_name # Add part="full"
+            etree.SubElement(provider, "service").text = provider_name  # Assuming service is the same as name
 
-        # Notes (Optional)
-        note = lead.get("AI Memory", "")
-        if note:
-            etree.SubElement(prospect, "AI Memory").text = note
+        # Comments (Including AI Memory)
+        comments = lead.get("COMMENTS", "")
+        ai_memory = lead.get("AI Memory", "")
+        if ai_memory:
+            comments = f"{comments}\n\nAI Memory:\n{ai_memory}"
+        if comments:
+            etree.SubElement(prospect, "comments").text = comments
 
     return etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=True)
 
