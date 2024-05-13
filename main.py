@@ -85,15 +85,15 @@ def generate_adf_xml(leads_data):
             etree.SubElement(prospect, "tag").text = tag
 
         # Source Type Name (New)
-        source_type_name = lead.get("Contact Source", "")
+        source_type_name = lead.get("contact_source", "") 
         if source_type_name:
             provider = etree.SubElement(prospect, "provider")
-            etree.SubElement(provider, "sourceTypeName").text = source_type_name
+            etree.SubElement(provider, "source_type_name").text = source_type_name 
 
         # Notes (Optional)
-        note = lead.get("AI Memory", "")
+        note = lead.get("ai_memory", "")  # Changed key to lowercase
         if note:
-            etree.SubElement(prospect, "AI Memory").text = note
+            etree.SubElement(prospect, "ai_memory").text = note  
 
     return etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=True)
 
