@@ -70,11 +70,11 @@ def generate_adf_xml(leads_data):
             if value:
                 etree.SubElement(contact, key).text = value
 
-        # Vehicle Information (Enhanced)
-        vehicle_info = lead.get("vehicleOfInterest", {})
-        if vehicle_info:
-            vehicle = etree.SubElement(prospect, "vehicle", interest="buy")
-            for key in ["year", "make", "model"]:
+        # Vehicle Information (Trade-in)
+        vehicle_info = lead.get("VEHICLE", {})
+        if vehicle_info and vehicle_info.get("interest") == "trade-in":
+            vehicle = etree.SubElement(prospect, "vehicle", interest="trade-in")
+            for key in ["YEAR", "MAKE", "MODEL"]:  # Use uppercase keys from raw data
                 value = vehicle_info.get(key, "")
                 if value:
                     etree.SubElement(vehicle, key).text = value
@@ -85,15 +85,21 @@ def generate_adf_xml(leads_data):
             etree.SubElement(prospect, "tag").text = tag
 
         # Source Type Name (New)
-        source_type_name = lead.get("contact_source", "") 
-        if source_type_name:
+        provider_name = lead.get("VENDOR", {}).get("VENDORNAME", "")  
+        if provider_name:
             provider = etree.SubElement(prospect, "provider")
-            etree.SubElement(provider, "source_type_name").text = source_type_name 
+            etree.SubElement(provider, "name").text = provider_name
 
-        # Notes (Optional)
-        note = lead.get("ai_memory", "")  # Changed key to lowercase
-        if note:
-            etree.SubElement(prospect, "ai_memory").text = note  
+        # Notes (Comments) - Change this section
+        ai_memory = lead.get("AI Memory", "")  
+        comments = lead.get("COMMENTS", "")  # Get existing comments (if any)
+        if ai_memory:
+            if comments:
+                comments += f"\n\nAI Memory:\n{ai_memory}"  # Append AI Memory
+            else:
+                comments = f"AI Memory:\n{ai_memory}"  # Use AI Memory as comments if none exist
+        if comments:
+            etree.SubElement(prospect, "comments").text = comments
 
     return etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=True)
 
