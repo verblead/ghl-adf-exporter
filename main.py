@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import yagmail
 import logging
 import atexit  # Import the atexit module
-from threading import Thread
+from threading import Thread, Event
 
 # Global Flask app object
 app = Flask(__name__)
