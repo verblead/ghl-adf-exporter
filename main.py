@@ -159,8 +159,22 @@ def handle_webhook():
         logging.info("Flask app shutting down...") 
         
 
+# ... (rest of your imports, functions, and webhook route)
+
 # Global Flask app object
 app = Flask(__name__)
+
+def shutdown_server():
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func is None:
+        raise RuntimeError('Not running with the Werkzeug Server')
+    func()
+
+@app.route('/shutdown')
+def shutdown():
+    shutdown_server()
+    return 'Server shutting down...'
+
 
 if __name__ == "__main__":
     try:
@@ -177,9 +191,12 @@ if __name__ == "__main__":
                 config['DRIVECENTRIC_IMPORT_EMAIL'],
                 "New Leads from GHL",
                 ["New leads in ADFXML format attached.", "lead_export.xml"]
-            )    
+            )
     except Exception as e:
-        logging.exception("An error occurred during lead processing:")  # Log the full exception traceback
+        logging.exception("An error occurred during lead processing:")  
     finally:
+        # Shut down the server after initial processing or error handling
+        shutdown_server()  
+        print("Shutting down...")
 
-        app.run(debug=False, host='0.0.0.0', port=5000) # Start the Flask app 
+        exit(0)
