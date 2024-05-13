@@ -191,10 +191,18 @@ def shutdown():
 
 
 if __name__ == "__main__":
+
+    def raise_keyboard_interrupt():
+        raise KeyboardInterrupt
+    
+    def wait_and_shutdown():
+        time.sleep(15)
+        raise_keyboard_interrupt()
+
     # Process initial leads (run only once)
     leads = fetch_ghl_leads()
     adf_xml = generate_adf_xml(leads)
-
+    
     if adf_xml:
         with open("lead_export.xml", "wb") as f:
             f.write(adf_xml)
@@ -206,19 +214,20 @@ if __name__ == "__main__":
             ["New leads in ADFXML format attached.", "lead_export.xml"]
         )
 
-    # Start the Flask app in a separate thread
-    Thread(target=app.run, kwargs={'debug': False, 'host': '0.0.0.0', 'port': 5000, 'use_reloader': False}).start()
+    # Now, start the Flask app after initial processing or error handling
+    Thread(target=app.run, kwargs={'debug': False, 'host': '0.0.0.0', 'port': 5000, 'use_reloader': False}).start() 
 
-    # Keep the main thread alive, but allow for graceful shutdown
+    # START THE SHUTDOWN TIMER
+    # Set up a signal handler to catch SIGALRM (the alarm signal)
+    signal.signal(signal.SIGALRM, raise_keyboard_interrupt)
+
+    # Set an alarm to go off in 15 seconds
+    signal.alarm(15)
+
     try:
-        while not shutdown_event.is_set():  # Wait until shutdown_event is set
-            time.sleep(1)  # Check every second 
+        # wait for 15 seconds or until shutdown is requested
+        wait_and_shutdown()
     except KeyboardInterrupt:
-        logging.info("Keyboard interrupt detected. Shutting down...")
-
-    # Gracefully shut down the Flask app
-    shutdown_server()
-
-    # wait 5 seconds before exiting
-    time.sleep(5)
-    exit(0)
+        logging.info("Shutdown signal received")
+        shutdown_server() # shutdown server
+        exit(0)
