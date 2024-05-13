@@ -18,8 +18,8 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
-      - name: Install system dependencies 
-        run: sudo apt-get install -y portaudio19-dev # Keep as is if needed
+      - name: Install system dependencies (if needed)
+        run: sudo apt-get install -y portaudio19-dev 
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -35,9 +35,16 @@ jobs:
           pip install gunicorn supervisor
           echo "[program:webhook]" >> supervisord.conf
           echo "command=gunicorn webhook:app" >> supervisord.conf
+          echo "" >> supervisord.conf  # Add empty line
+          echo "[supervisorctl]" >> supervisord.conf  # Add supervisorctl section
           supervisord -c supervisord.conf & # Run Supervisord in the background
-      - name: Stop Supervisord
+      - name: Stop Supervisord (gracefully)
         run: |
-          sleep 10
-          supervisorctl shutdown # Gracefully shut down Supervisord and Gunicorn
-
+          sleep 10 # Give some time for the server to start
+          supervisorctl -c supervisord.conf shutdown  # Specify config file
+      - name: Upload logs (if failed)
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: error-logs
+          path: error.log  # Adjust the path if necessary
