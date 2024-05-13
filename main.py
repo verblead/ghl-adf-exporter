@@ -9,6 +9,7 @@ import logging
 import atexit  # Import the atexit module
 from threading import Thread, Event
 import time
+import signal
 
 # Global Flask app object
 app = Flask(__name__)
