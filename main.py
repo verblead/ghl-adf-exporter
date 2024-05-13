@@ -218,3 +218,7 @@ if __name__ == "__main__":
 
     # Gracefully shut down the Flask app
     shutdown_server()
+
+    # wait 5 seconds before exiting
+    time.sleep(5)
+    exit(0)
