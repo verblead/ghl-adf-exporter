@@ -68,27 +68,27 @@ def generate_adf_xml(leads_data):
         if last_name:
             etree.SubElement(contact, "name", part="last").text = last_name
 
-        # Contact Information (Optional)
-        for key in ["phone", "email", "address1", "city", "state", "postalCode"]:
-            value = lead.get(key, "")
-            if value:
-                etree.SubElement(contact, key).text = value
+        # Vehicle Information (Trade-in) - Updated to use custom fields
+    for key in ["phone", "email", "address1", "city", "state", "postalCode"]:
+        value = lead.get(key, "")
+        if value:
+            etree.SubElement(contact, key).text = value
 
-        # Vehicle Information (Enhanced)
-         additional_info = lead.get("Additional Info", {})  # Get data from "Additional Info" card
-         vehicle_info = {}
-         for key in ["Vehicle Year", "Vehicle Make", "Vehicle Model", "Vehicle Trim", "Vehicle Mileage", "Vehicle Condition"]:
-             value = additional_info.get(key, "")  # Extract values from within "Additional Info"
-             if value:
-                 vehicle_info[key] = value
-        
-        if vehicle_info.get("Vehicle Year") and vehicle_info.get("Vehicle Make") and vehicle_info.get("Vehicle Model"): 
-            vehicle = etree.SubElement(prospect, "vehicle", interest="trade-in")
-            for key, value in vehicle_info.items():
-                if value:  # Include only fields with values
-                    # Map GHL custom field names to DriveCentric XML tags
-                    xml_tag = key.replace("Vehicle ", "") 
-                    etree.SubElement(vehicle, xml_tag).text = str(value)
+    additional_info = lead.get("Additional Info", {})  # Get data from "Additional Info" card
+    vehicle_info = {}
+    for key in ["Vehicle Year", "Vehicle Make", "Vehicle Model", "Vehicle Trim", "Vehicle Mileage", "Vehicle Condition"]:
+        value = additional_info.get(key, "") # Extract values from within "Additional Info"
+        if value:
+            vehicle_info[key] = value
+
+
+    if vehicle_info.get("Vehicle Year") and vehicle_info.get("Vehicle Make") and vehicle_info.get("Vehicle Model"):
+        vehicle = etree.SubElement(prospect, "vehicle", interest="trade-in")
+        for key, value in vehicle_info.items():
+            if value:  # Include only fields with values
+                # Map GHL custom field names to DriveCentric XML tags
+                xml_tag = key.replace("Vehicle ", "")
+                etree.SubElement(vehicle, key).text = str(value)
 
 
         # Tags (Optional)
