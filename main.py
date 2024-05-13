@@ -43,56 +43,47 @@ def fetch_ghl_leads():
         return []  # Return empty list on error
 
 def generate_adf_xml(leads_data):
-    """Generates ADF XML from lead data, adapting to your specific format."""
+    """Generates ADF XML from lead data."""
     if not leads_data:
         logging.warning("No leads found in the API response.")
         return None
 
     root = etree.Element("adf")
     for lead in leads_data:
-        prospect = etree.SubElement(root, "prospect", status="new")
+        prospect = etree.SubElement(root, "prospect")
+        etree.SubElement(prospect, "id").text = str(lead.get("id", ""))
+
+        customer = etree.SubElement(prospect, "customer")
+        contact = etree.SubElement(customer, "contact")
+
+        # Customer Information (Handle Missing Names Gracefully)
+        first_name = lead.get("firstName")
+        last_name = lead.get("lastName")
+
+        if first_name:
+            etree.SubElement(contact, "name", part="first").text = first_name
+        if last_name:
+            etree.SubElement(contact, "name", part="last").text = last_name
+
+        # Contact Information (Optional)
+        for key in ["phone", "email", "address1", "city", "state", "postalCode"]:
+            value = lead.get(key, "")
+            if value:
+                etree.SubElement(contact, key).text = value
+
+        # Vehicle Information (Enhanced)
+        vehicle_info = lead.get("vehicleOfInterest", {})
+        if vehicle_info:
+            vehicle = etree.SubElement(prospect, "vehicle", interest="buy")
+            for key in ["year", "make", "model"]:
+                value = vehicle_info.get(key, "")
+                if value:
+                    etree.SubElement(vehicle, key).text = value    
 
         # ID with Source
         source = "VERBLEAD"  # Hardcoded as VERBLEAD per your requirement
         etree.SubElement(prospect, "id", sequence="1", source=source).text = str(lead.get("id", ""))
 
-        # Request Date
-        request_date = lead.get("REQUESTDATE", "")
-        etree.SubElement(prospect, "requestdate").text = request_date
-
-        # Vehicle Information
-        vehicle_info = lead.get("VEHICLE", {})
-        if vehicle_info.get("interest") == "buy":
-            vehicle = etree.SubElement(prospect, "vehicle", interest="buy", status="used")
-            for key in ["YEAR", "MAKE", "MODEL"]:
-                value = vehicle_info.get(key, "")
-                if value:
-                    etree.SubElement(vehicle, key).text = str(value)
-
-        # Customer Information
-        customer = etree.SubElement(prospect, "customer")
-        contact = etree.SubElement(customer, "contact", primarycontact="1") 
-        for key in ["NAME"]:
-            value = lead.get("CUSTOMER", {}).get("CONTACT", {}).get(key, "")
-            if value and isinstance(value, dict): # Handle if NAME is a dictionary
-                for part in ["full", "first", "last"]:
-                    part_value = value.get(f"part = {part}", "")
-                    if part_value:
-                        etree.SubElement(contact, "name", part=part, type="individual").text = part_value
-            elif value:
-                etree.SubElement(contact, key).text = value
-
-        # Contact Information (phone, email, address)
-        for key, xml_tag in [("PHONE", "phone"), ("EMAIL", "email")]:
-            value = lead.get("CUSTOMER", {}).get("CONTACT", {}).get(key, "")
-            if value:
-                etree.SubElement(contact, xml_tag).text = value
-
-        address_info = lead.get("CUSTOMER", {}).get("CONTACT", {}).get("ADDRESS", {})
-        for key in ["STREET", "CITY", "REGIONCODE", "POSTALCODE", "COUNTRY"]:
-            value = address_info.get(f"line = 1", "") if key == "STREET" else address_info.get(key, "")
-            if value:
-                etree.SubElement(contact, "address" if key == "STREET" else key, type="home").text = value
 
         # Comments (Including AI Memory from ChatGPT)
         comments = lead.get("CUSTOMER", {}).get("COMMENTS", "")
@@ -111,7 +102,7 @@ def generate_adf_xml(leads_data):
         # Provider Information (Hardcoded as VERBLEAD)
         provider = etree.SubElement(prospect, "provider")
         etree.SubElement(provider, "name", part="full").text = "VERBLEAD"
-        etree.SubElement(provider, "service").text = "Used Vehicle Sales"
+        etree.SubElement(provider, "service").text = "AI Sales"
 
 
         # Tags (Optional)
