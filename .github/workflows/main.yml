@@ -1,60 +1,29 @@
-name: Python Lead Processing
+name: Python application
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  repository_dispatch:
-    types: [lead]
+ push:
+  branches: [ main ]
+ pull_request:
+  branches: [ main ]
+ repository_dispatch:
+  types: [lead]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+ build:
 
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-      - name: Install system dependencies (if needed)
-        run: sudo apt-get install -y portaudio19-dev 
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run script to process initial leads
-        run: python main.py
-      - name: Install Gunicorn and Supervisord
-        run: pip install gunicorn supervisor
- 
-      - name: Prepare Supervisord configuration
-        run: |
-          echo "[program:webhook]" >> supervisord.conf
-          echo "command=gunicorn webhook:app --bind 0.0.0.0:5000" >> supervisord.conf
-          echo "[supervisorctl]" >> supervisord.conf 
-          echo "serverurl=unix:///tmp/supervisor.sock" >> supervisord.conf  
+  runs-on: ubuntu-latest
 
-      - name: Start webhook server with Supervisord
-        run: supervisord -c supervisord.conf
-       
-      - name: Stop Supervisord (gracefully)
-        run: |
-          sleep 15  # Give some time for the server to start (increase if needed)
-          supervisorctl -c supervisord.conf shutdown  # Specify config file
-      - name: Force Stop Supervisord (if graceful shutdown fails)  
-        if: failure()
-        run: |
-          pkill -f supervisord # Kill the supervisord process 
-      - name: Upload logs (if failed)
-        if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: error-logs
-          path: error.log  
+  steps:
+  - uses: actions/checkout@v2
+  - name: Set up Python 3.8
+   uses: actions/setup-python@v2
+   with:
+    python-version: 3.8
+  - name: Install system dependencies
+   run: sudo apt-get install -y portaudio19-dev
+  - name: Install dependencies
+   run: |
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+  - name: Run script
+   run: python main.py
