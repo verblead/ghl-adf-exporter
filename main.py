@@ -131,6 +131,13 @@ def send_email(recipient, subject, contents, attachment=None):
 processed_leads = set()
 shutdown_event = Event()  # Event to signal server shutdown
 
+# Function to shutdown the Flask app
+def shutdown_server():
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func is None:
+        raise RuntimeError('Not running with the Werkzeug Server')
+    func()
+
 # Webhook Endpoint
 @app.route('/webhook', methods=['POST'])
 def handle_webhook():
@@ -155,55 +162,35 @@ def handle_webhook():
                 f.write(adf_xml)
 
             send_email(
-                config['DRIVECENTRIC_IMPORT_EMAIL'], 
-                "New Lead from GHL", 
-                ["New lead in ADFXML format attached."], 
+                config['DRIVECENTRIC_IMPORT_EMAIL'],
+                "New Lead from GHL",
+                ["New lead in ADFXML format attached."],
                 "lead_export.xml"
             )
+            # Signal shutdown after processing and emailing lead
+            shutdown_event.set()  
 
             return jsonify({"message": "Lead processed successfully"}), 200
         else:
-            return jsonify({"error": "Error processing lead (no valid ADF XML generated)"}), 400 
+            return jsonify({"error": "Error processing lead (no valid ADF XML generated)"}), 400
 
-    except (ValueError, KeyError, TypeError) as e: 
+    except (ValueError, KeyError, TypeError) as e:
         logging.error(f"Webhook error: {e}, Payload: {lead_data}")
-        return jsonify({"error": "Error processing lead"}), 400  
-    except Exception as e: 
+        return jsonify({"error": "Error processing lead"}), 400
+    except Exception as e:
         logging.error(f"Unexpected webhook error: {e}, Payload: {lead_data}")
         return jsonify({"error": "Internal Server Error"}), 500
     finally:
         # Now, shut down the Flask app explicitly (after handling the request)
-        shutdown_func = request.environ.get('werkzeug.server.shutdown')
-        if shutdown_func:
-            shutdown_func()
-        logging.info("Flask app shutting down...")    
-
-# Function to shutdown the Flask app
-def shutdown_server():
-    func = request.environ.get('werkzeug.server.shutdown')
-    if func is None:
-        raise RuntimeError('Not running with the Werkzeug Server')
-    func()
-
-@app.route('/shutdown')
-def shutdown():
-    shutdown_server()
-    return 'Server shutting down...'
+        shutdown_server()
+        logging.info("Flask app shutting down...")
 
 
 if __name__ == "__main__":
-
-    def raise_keyboard_interrupt(signum, frame):  # Accept the signal arguments
-        raise KeyboardInterrupt
-
-    def wait_and_shutdown():
-        time.sleep(15)
-        raise_keyboard_interrupt(None, None) # explicitly pass None to the function
-
     # Process initial leads (run only once)
     leads = fetch_ghl_leads()
     adf_xml = generate_adf_xml(leads)
-    
+
     if adf_xml:
         with open("lead_export.xml", "wb") as f:
             f.write(adf_xml)
@@ -215,20 +202,11 @@ if __name__ == "__main__":
             ["New leads in ADFXML format attached.", "lead_export.xml"]
         )
 
-    # START THE SHUTDOWN TIMER
-    # Set up a signal handler to catch SIGALRM (the alarm signal)
-    signal.signal(signal.SIGALRM, raise_keyboard_interrupt)  
-
-    # Set an alarm to go off in 15 seconds
-    signal.alarm(15)
-
     # Start the Flask app in a separate thread
     Thread(target=app.run, kwargs={'debug': False, 'host': '0.0.0.0', 'port': 5000, 'use_reloader': False}).start()
 
-    try:
-        # wait for 15 seconds or until shutdown is requested
-        wait_and_shutdown()
-    except KeyboardInterrupt:
-        logging.info("Shutdown signal received")
-        shutdown_server()
-        exit(0)
+    # Wait for shutdown signal
+    shutdown_event.wait()
+
+    # Exit when the shutdown event is set
+    exit(0)
