@@ -144,15 +144,19 @@ def handle_webhook():
             )
 
             return jsonify({"message": "Lead processed successfully"}), 200
-        else:
-            return jsonify({"error": "Error processing lead (no valid ADF XML generated)"}), 400 
 
     except (ValueError, KeyError, TypeError) as e: 
         logging.error(f"Webhook error: {e}, Payload: {lead_data}")
-        return jsonify({"error": "Error processing lead"}), 400  
+        return jsonify({"error": "Error processing lead"}), 400
     except Exception as e: 
         logging.error(f"Unexpected webhook error: {e}, Payload: {lead_data}")
         return jsonify({"error": "Internal Server Error"}), 500
+    finally:
+        # Now, shut down the Flask app explicitly (after handling the request)
+        shutdown_func = request.environ.get('werkzeug.server.shutdown')
+        if shutdown_func:
+            shutdown_func()
+        logging.info("Flask app shutting down...") 
         
 
 # Global Flask app object
@@ -174,11 +178,4 @@ if __name__ == "__main__":
             ["New leads in ADFXML format attached.", "lead_export.xml"]
         )
 
-    # Now, shut down the Flask app explicitly
-    shutdown_func = request.environ.get('werkzeug.server.shutdown')
-    if shutdown_func:
-        shutdown_func()
-    print("Flask app shutting down...")
-
-    exit(0)  # 0 indicates successful completion
-
+   app.run(debug=False, host='0.0.0.0', port=5000) # Start the Flask app 
