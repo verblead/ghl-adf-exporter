@@ -127,6 +127,7 @@ def send_email(recipient, subject, contents, attachment=None):
 
 # Global variable to store processed lead IDs (consider using a persistent storage like a database in production)
 processed_leads = set()
+shutdown_event = Event()  # Event to signal server shutdown
 
 # Webhook Endpoint
 @app.route('/webhook', methods=['POST'])
@@ -182,8 +183,11 @@ def shutdown_server():
         raise RuntimeError('Not running with the Werkzeug Server')
     func()
 
-# Register the shutdown function to run at exit
-atexit.register(shutdown_server)
+@app.route('/shutdown')
+def shutdown():
+    shutdown_server()
+    return 'Server shutting down...'
+
 
 if __name__ == "__main__":
     # Process initial leads (run only once)
@@ -202,13 +206,13 @@ if __name__ == "__main__":
         )
 
     # Start the Flask app in a separate thread
-    Thread(target=app.run, kwargs={'debug': False, 'host': '0.0.0.0', 'port': 5000, 'use_reloader': False}).start() 
+    Thread(target=app.run, kwargs={'debug': False, 'host': '0.0.0.0', 'port': 5000, 'use_reloader': False}).start()
 
-    # After starting the server, process leads again but don't exit immediately
-    while True:
-        leads = fetch_ghl_leads()
-        # ... (process leads, generate XML, send email)
+    # Keep the main thread alive, but allow for graceful shutdown
+    try:
+        while not shutdown_event.is_set():  # Wait until shutdown_event is set
+            time.sleep(1)  # Check every second 
+    except KeyboardInterrupt:
+        logging.info("Keyboard interrupt detected. Shutting down...")
 
-        # Add a short delay to avoid excessive polling (optional)
-        import time
-        time.sleep(60)  # Wait for 60 seconds before checking for new leads again
+    # Gracefully shut down the Flask app
