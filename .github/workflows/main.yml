@@ -34,14 +34,18 @@ jobs:
           python main.py &  # Run main.py in the background to process leads
           pip install gunicorn supervisor
           echo "[program:webhook]" >> supervisord.conf
-          echo "command=gunicorn webhook:app" >> supervisord.conf
-          echo "" >> supervisord.conf  # Add empty line
+          echo "command=gunicorn webhook:app --bind 0.0.0.0:5000" >> supervisord.conf  # Specify binding address
           echo "[supervisorctl]" >> supervisord.conf  # Add supervisorctl section
+          echo "serverurl=http://127.0.0.1:9001" >> supervisord.conf # add in server url
           supervisord -c supervisord.conf & # Run Supervisord in the background
       - name: Stop Supervisord (gracefully)
         run: |
-          sleep 10 # Give some time for the server to start
+          sleep 15  # Give more time for the server to start (increase if needed)
           supervisorctl -c supervisord.conf shutdown  # Specify config file
+      - name: Force Stop Supervisord (if graceful shutdown fails)  
+        if: failure()
+        run: |
+          pkill -f supervisord # Kill the supervisord process
       - name: Upload logs (if failed)
         if: failure()
         uses: actions/upload-artifact@v3
