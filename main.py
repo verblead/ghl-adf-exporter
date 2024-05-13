@@ -174,4 +174,5 @@ if __name__ == "__main__":
             ["New leads in ADFXML format attached.", "lead_export.xml"]
         )
 
-    # Start the Flask app app.run(debug=False, host='0.0.0.0', port=5000)
+    # Start the Flask app 
+    app.run(debug=False, host='0.0.0.0', port=5000)
