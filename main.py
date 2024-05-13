@@ -72,13 +72,21 @@ def generate_adf_xml(leads_data):
                 etree.SubElement(contact, key).text = value
 
         # Vehicle Information (Enhanced)
-        vehicle_info = lead.get("vehicleOfInterest", {})
-        if vehicle_info:
-            vehicle = etree.SubElement(prospect, "vehicle", interest="buy")
-            for key in ["year", "make", "model"]:
-                value = vehicle_info.get(key, "")
-                if value:
-                    etree.SubElement(vehicle, key).text = value
+         additional_info = lead.get("Additional Info", {})  # Get data from "Additional Info" card
+         vehicle_info = {}
+         for key in ["Vehicle Year", "Vehicle Make", "Vehicle Model", "Vehicle Trim", "Vehicle Mileage", "Vehicle Condition"]:
+             value = additional_info.get(key, "")  # Extract values from within "Additional Info"
+             if value:
+                 vehicle_info[key] = value
+        
+        if vehicle_info.get("Vehicle Year") and vehicle_info.get("Vehicle Make") and vehicle_info.get("Vehicle Model"): 
+            vehicle = etree.SubElement(prospect, "vehicle", interest="trade-in")
+            for key, value in vehicle_info.items():
+                if value:  # Include only fields with values
+                    # Map GHL custom field names to DriveCentric XML tags
+                    xml_tag = key.replace("Vehicle ", "") 
+                    etree.SubElement(vehicle, xml_tag).text = str(value)
+
 
         # Tags (Optional)
         tags = lead.get("tags", [])
