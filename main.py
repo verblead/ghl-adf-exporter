@@ -24,7 +24,7 @@ if missing_config:
     raise ValueError(f"Missing required environment variables: {', '.join(missing_config)}")
 
 # Logging Setup for Debugging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='error.log', level=logging.ERROR,format='%(asctime)s - %(levelname)s - %(message)s')
 
 def fetch_ghl_leads():
     """Fetches lead data from GoHighLevel API."""
@@ -163,19 +163,23 @@ def handle_webhook():
 app = Flask(__name__)
 
 if __name__ == "__main__":
-    # Process initial leads (run only once)
-    leads = fetch_ghl_leads()
-    adf_xml = generate_adf_xml(leads)
+    try:
+        # Process initial leads (run only once)
+        leads = fetch_ghl_leads()
+        adf_xml = generate_adf_xml(leads)
 
-    if adf_xml:
-        with open("lead_export.xml", "wb") as f:
-            f.write(adf_xml)
-        print("ADF XML saved to lead_export.xml")
+        if adf_xml:
+            with open("lead_export.xml", "wb") as f:
+                f.write(adf_xml)
+            print("ADF XML saved to lead_export.xml")
 
-        send_email(
-            config['DRIVECENTRIC_IMPORT_EMAIL'],
-            "New Leads from GHL",
-            ["New leads in ADFXML format attached.", "lead_export.xml"]
-        )
+            send_email(
+                config['DRIVECENTRIC_IMPORT_EMAIL'],
+                "New Leads from GHL",
+                ["New leads in ADFXML format attached.", "lead_export.xml"]
+            )    
+    except Exception as e:
+        logging.exception("An error occurred during lead processing:")  # Log the full exception traceback
+    finally:
 
 app.run(debug=False, host='0.0.0.0', port=5000) # Start the Flask app 
