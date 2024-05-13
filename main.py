@@ -8,6 +8,7 @@ import yagmail
 import logging
 import atexit  # Import the atexit module
 from threading import Thread, Event
+import time
 
 # Global Flask app object
 app = Flask(__name__)
@@ -216,3 +217,4 @@ if __name__ == "__main__":
         logging.info("Keyboard interrupt detected. Shutting down...")
 
     # Gracefully shut down the Flask app
+    shutdown_server()
