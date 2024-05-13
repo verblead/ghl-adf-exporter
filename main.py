@@ -1,4 +1,5 @@
 import requests
+from urllib.parse import quote_plus
 from flask import Flask, request, jsonify
 import os
 from lxml import etree
