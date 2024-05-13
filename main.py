@@ -6,6 +6,8 @@ from lxml import etree
 from dotenv import load_dotenv
 import yagmail
 import logging
+import atexit  # Import the atexit module
+from threading import Thread
 
 # Global Flask app object
 app = Flask(__name__)
@@ -173,7 +175,18 @@ def handle_webhook():
             shutdown_func()
         logging.info("Flask app shutting down...")    
 
+# Function to shutdown the Flask app
+def shutdown_server():
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func is None:
+        raise RuntimeError('Not running with the Werkzeug Server')
+    func()
+
+# Register the shutdown function to run at exit
+atexit.register(shutdown_server)
+
 if __name__ == "__main__":
+    # Process initial leads (run only once)
     leads = fetch_ghl_leads()
     adf_xml = generate_adf_xml(leads)
 
@@ -187,8 +200,15 @@ if __name__ == "__main__":
             "New Leads from GHL",
             ["New leads in ADFXML format attached.", "lead_export.xml"]
         )
-    else:
-        print("No leads found or all leads have errors.")
 
-    # Start the Flask app
-    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)  # Disable reloader
+    # Start the Flask app in a separate thread
+    Thread(target=app.run, kwargs={'debug': False, 'host': '0.0.0.0', 'port': 5000, 'use_reloader': False}).start() 
+
+    # After starting the server, process leads again but don't exit immediately
+    while True:
+        leads = fetch_ghl_leads()
+        # ... (process leads, generate XML, send email)
+
+        # Add a short delay to avoid excessive polling (optional)
+        import time
+        time.sleep(60)  # Wait for 60 seconds before checking for new leads again
