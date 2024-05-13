@@ -1,4 +1,4 @@
-name: Python application
+name: Python Lead Processing
 
 on:
   push:
@@ -34,4 +34,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: error-logs
-          path: error.log  # Adjust the path based on your logging setup
+          path: error.log
